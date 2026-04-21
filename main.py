@@ -1,4 +1,3 @@
-from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -493,6 +492,7 @@ def seed_defaults() -> None:
                 "owner_email": "ghatejeka@gmail.com",
             },
         ]
+
         for payload in listing_payloads:
             owner = user_lookup_by_email[payload["owner_email"]]
             listing_data = {key: value for key, value in payload.items() if key != "owner_email"}
@@ -526,15 +526,8 @@ def seed_defaults() -> None:
         db.close()
 
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    db_models.Base.metadata.create_all(bind=engine)
-    sync_existing_schema()
-    seed_defaults()
-    yield
+app = FastAPI(title="SAM API")
 
-
-app = FastAPI(title="SAM API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"],
@@ -574,6 +567,17 @@ def parse_bonus_sections() -> list[BonusInfoSection]:
 @app.get("/")
 def greeting():
     return {"message": "SAM API is running successfully"}
+
+
+@app.post("/seed")
+def run_seed():
+    try:
+        db_models.Base.metadata.create_all(bind=engine)
+        sync_existing_schema()
+        seed_defaults()
+        return {"message": "Seeding completed successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/auth/login")
