@@ -530,7 +530,7 @@ app = FastAPI(title="SAM API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*-moses-hitanghus-projects\.vercel\.app",
+    allow_origin_regex=r"https://sam-demo-delta.vercel.app/",
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
