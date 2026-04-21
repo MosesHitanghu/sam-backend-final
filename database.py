@@ -9,10 +9,10 @@ try:
 except ImportError:
     pass
 
-DATABASE_URL = os.getenv("POSTGRES_URL")
+DATABASE_URL = os.getenv("POSTGRES_URL") or os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise RuntimeError("POSTGRES_URL is not set")
+    raise RuntimeError("POSTGRES_URL or DATABASE_URL is not set")
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -21,7 +21,6 @@ engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
     poolclass=NullPool,
-    connect_args={"sslmode": "require"},
 )
 
 SessionLocal = sessionmaker(
@@ -31,6 +30,7 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
+
 
 def get_db():
     db = SessionLocal()
