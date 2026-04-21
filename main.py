@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 from pathlib import Path
+from fastapi.middleware.cors import CORSMiddleware
+
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -528,12 +530,13 @@ def seed_defaults() -> None:
 
 app = FastAPI(title="SAM API")
 
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://sam-demo-delta.vercel.app/",
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "https://sam-demo-delta.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
