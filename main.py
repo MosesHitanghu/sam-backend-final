@@ -25,6 +25,7 @@ from models import (
     SiteVisitCreate,
     UserCreate,
     UserRead,
+    UserUpdate,
     WishCreate,
 )
 
@@ -93,6 +94,8 @@ def seed_defaults() -> None:
                 "full_name": "SAM Super Admin",
                 "phone_number": "+256763615316",
                 "profile_picture": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=900&q=80",
+                "district": "Mukono",
+                "village": "Kiwanga",
             },
             {
                 "email": "nabasabrianish1@gmail.com",
@@ -104,6 +107,8 @@ def seed_defaults() -> None:
                 "full_name": "Brian Nabasa",
                 "phone_number": "+256752440513",
                 "profile_picture": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80",
+                "district": "Wakiso",
+                "village": "Bweyogerere",
                 "experience": "6 years",
                 "sales_closed": 18,
             },
@@ -117,6 +122,8 @@ def seed_defaults() -> None:
                 "full_name": "SAM Admin",
                 "phone_number": "+256701000001",
                 "profile_picture": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=900&q=80",
+                "district": "Kampala",
+                "village": "Ntinda",
             },
             {
                 "email": "sarah.namubiru@sam.ug",
@@ -128,6 +135,8 @@ def seed_defaults() -> None:
                 "full_name": "Sarah Namubiru",
                 "phone_number": "+256706000102",
                 "profile_picture": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80",
+                "district": "Wakiso",
+                "village": "Entebbe",
                 "experience": "4 years",
                 "sales_closed": 11,
             },
@@ -141,6 +150,8 @@ def seed_defaults() -> None:
                 "full_name": "David Kato",
                 "phone_number": "+256703000103",
                 "profile_picture": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=80",
+                "district": "Mukono",
+                "village": "Seeta",
                 "experience": "8 years",
                 "sales_closed": 23,
             },
@@ -154,6 +165,8 @@ def seed_defaults() -> None:
                 "full_name": "Ruth Atwine",
                 "phone_number": "+256704000104",
                 "profile_picture": "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=900&q=80",
+                "district": "Kampala",
+                "village": "Muyenga",
                 "experience": "5 years",
                 "sales_closed": 14,
             },
@@ -206,8 +219,8 @@ def seed_defaults() -> None:
                 "category": "Residential Land",
                 "size_text": "50ft x 100ft",
                 "purpose": "Residential",
-                "thumbnail_url": "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=80",
-                "pictures": "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80",
+                "thumbnail_url": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80",
                 "is_featured": True,
                 "total_views": 124,
                 "total_sales": 3,
@@ -225,9 +238,9 @@ def seed_defaults() -> None:
                 "category": "Commercial Land",
                 "size_text": "100ft x 100ft",
                 "purpose": "Commercial",
-                "thumbnail_url": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
-                "pictures": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1460317442991-0ec209397118?auto=format&fit=crop&w=1200&q=80",
-                "is_featured": True,
+                "thumbnail_url": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": False,
                 "total_views": 92,
                 "total_sales": 1,
                 "owner_email": "ghatejeka@gmail.com",
@@ -263,8 +276,8 @@ def seed_defaults() -> None:
                 "category": "Residential Land",
                 "size_text": "80ft x 120ft",
                 "purpose": "Residential",
-                "thumbnail_url": "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80",
-                "pictures": "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1448630360428-65456885c650?auto=format&fit=crop&w=1200&q=80",
+                "thumbnail_url": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1200&q=80",
                 "is_featured": True,
                 "total_views": 186,
                 "total_sales": 4,
@@ -282,9 +295,9 @@ def seed_defaults() -> None:
                 "category": "Development Land",
                 "size_text": "25 Decimals",
                 "purpose": "Mixed Use",
-                "thumbnail_url": "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80",
-                "pictures": "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=1200&q=80",
-                "is_featured": True,
+                "thumbnail_url": "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": False,
                 "total_views": 153,
                 "total_sales": 2,
                 "owner_email": "ruth.atwine@sam.ug",
@@ -301,8 +314,8 @@ def seed_defaults() -> None:
                 "category": "Commercial Land",
                 "size_text": "70ft x 100ft",
                 "purpose": "Commercial",
-                "thumbnail_url": "https://images.unsplash.com/photo-1448630360428-65456885c650?auto=format&fit=crop&w=1200&q=80",
-                "pictures": "https://images.unsplash.com/photo-1448630360428-65456885c650?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
+                "thumbnail_url": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
                 "is_featured": False,
                 "total_views": 77,
                 "total_sales": 1,
@@ -339,12 +352,145 @@ def seed_defaults() -> None:
                 "category": "Residential Land",
                 "size_text": "30 Decimals",
                 "purpose": "Residential",
-                "thumbnail_url": "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=1200&q=80",
-                "pictures": "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80",
-                "is_featured": True,
+                "thumbnail_url": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": False,
                 "total_views": 205,
                 "total_sales": 5,
                 "owner_email": "sarah.namubiru@sam.ug",
+            },
+            {
+                "title": "Hilltop Residential Plots in Matugga",
+                "description": "Gently elevated residential plots with neighborhood road access and strong buyer interest.",
+                "price": 62000000,
+                "district": "Wakiso",
+                "city": "Matugga",
+                "address": "Matugga Hill",
+                "status": "available",
+                "approval_status": "approved",
+                "category": "Residential Land",
+                "size_text": "60ft x 100ft",
+                "purpose": "Residential",
+                "thumbnail_url": "https://images.unsplash.com/photo-1472396961693-142e6e269027?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1472396961693-142e6e269027?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": False,
+                "total_views": 83,
+                "total_sales": 1,
+                "owner_email": "ruth.atwine@sam.ug",
+            },
+            {
+                "title": "Industrial Yard Opportunity in Namanve",
+                "description": "Industrial land suitable for storage, logistics and light manufacturing with direct highway access.",
+                "price": 310000000,
+                "district": "Mukono",
+                "city": "Namanve",
+                "address": "Namanve Industrial Zone",
+                "status": "available",
+                "approval_status": "approved",
+                "category": "Industrial Land",
+                "size_text": "1.5 Acres",
+                "purpose": "Industrial",
+                "thumbnail_url": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": True,
+                "total_views": 146,
+                "total_sales": 2,
+                "owner_email": "ghatejeka@gmail.com",
+            },
+            {
+                "title": "Subdivision Acreage in Gayaza",
+                "description": "Well-positioned acreage ideal for phased subdivision and family estate planning.",
+                "price": 188000000,
+                "district": "Wakiso",
+                "city": "Gayaza",
+                "address": "Gayaza Corridor",
+                "status": "available",
+                "approval_status": "approved",
+                "category": "Development Land",
+                "size_text": "4 Acres",
+                "purpose": "Subdivision",
+                "thumbnail_url": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": False,
+                "total_views": 71,
+                "total_sales": 0,
+                "owner_email": "sarah.namubiru@sam.ug",
+            },
+            {
+                "title": "Roadside Trading Plot in Lugazi",
+                "description": "Compact roadside plot positioned for shops, trading units and fast-moving retail frontage.",
+                "price": 54000000,
+                "district": "Buikwe",
+                "city": "Lugazi",
+                "address": "Lugazi Main Road",
+                "status": "available",
+                "approval_status": "approved",
+                "category": "Commercial Land",
+                "size_text": "40ft x 80ft",
+                "purpose": "Commercial",
+                "thumbnail_url": "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": False,
+                "total_views": 59,
+                "total_sales": 1,
+                "owner_email": "nabasabrianish1@gmail.com",
+            },
+            {
+                "title": "Fenced Banana Farm in Masaka",
+                "description": "Productive farm parcel with established bananas, fencing and reliable seasonal access.",
+                "price": 225000000,
+                "district": "Masaka",
+                "city": "Masaka",
+                "address": "Masaka Farm Belt",
+                "status": "available",
+                "approval_status": "approved",
+                "category": "Agricultural Land",
+                "size_text": "9 Acres",
+                "purpose": "Agricultural",
+                "thumbnail_url": "https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": False,
+                "total_views": 132,
+                "total_sales": 3,
+                "owner_email": "david.kato@sam.ug",
+            },
+            {
+                "title": "Investment Plots Near Seeta Town",
+                "description": "Fast-selling investment plots close to the highway, schools and emerging commercial amenities.",
+                "price": 58000000,
+                "district": "Mukono",
+                "city": "Seeta",
+                "address": "Seeta Growth Corridor",
+                "status": "sold",
+                "approval_status": "approved",
+                "category": "Residential Land",
+                "size_text": "50ft x 100ft",
+                "purpose": "Investment",
+                "thumbnail_url": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": False,
+                "total_views": 97,
+                "total_sales": 2,
+                "owner_email": "ruth.atwine@sam.ug",
+            },
+            {
+                "title": "School Development Site in Mpigi",
+                "description": "Expansive level site appropriate for institutional development, sports grounds and phased construction.",
+                "price": 275000000,
+                "district": "Mpigi",
+                "city": "Mpigi",
+                "address": "Mpigi Education Corridor",
+                "status": "available",
+                "approval_status": "approved",
+                "category": "Institutional Land",
+                "size_text": "5 Acres",
+                "purpose": "Institutional",
+                "thumbnail_url": "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1200&q=80",
+                "pictures": "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1200&q=80,https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80",
+                "is_featured": True,
+                "total_views": 111,
+                "total_sales": 1,
+                "owner_email": "ghatejeka@gmail.com",
             },
         ]
         for payload in listing_payloads:
@@ -367,6 +513,9 @@ def seed_defaults() -> None:
                 for field, value in listing_data.items():
                     if getattr(listing, field, None) in (None, "") and value not in (None, ""):
                         setattr(listing, field, value)
+                listing.thumbnail_url = listing_data["thumbnail_url"]
+                listing.pictures = listing_data["pictures"]
+                listing.is_featured = listing_data["is_featured"]
                 if listing.status != listing_data["status"]:
                     listing.status = listing_data["status"]
                 if not listing.owner_id:
@@ -523,6 +672,29 @@ def list_users(role: str | None = None, db: Session = Depends(get_db)):
     return query.order_by(db_models.User.created_at.desc()).all()
 
 
+@app.patch("/users/{user_id}", response_model=UserRead)
+def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+    user = db.get(db_models.User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(user, field, value)
+
+    log_action(
+        db,
+        action="update_user",
+        entity_type="user",
+        entity_id=user.id,
+        description="Updated user profile information",
+        actor_id=user.id,
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @app.patch("/users/{user_id}/approve", response_model=UserRead)
 def approve_agent(user_id: int, db: Session = Depends(get_db)):
     user = db.get(db_models.User, user_id)
@@ -540,6 +712,78 @@ def approve_agent(user_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     return user
+
+
+@app.patch("/users/{user_id}/reject", response_model=UserRead)
+def reject_agent(user_id: int, db: Session = Depends(get_db)):
+    user = db.get(db_models.User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.status = "rejected"
+    log_action(
+        db,
+        action="reject_agent",
+        entity_type="user",
+        entity_id=user.id,
+        description="Agent account rejected",
+        actor_id=user.id,
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@app.patch("/users/{user_id}/deactivate", response_model=UserRead)
+def deactivate_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.get(db_models.User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.status = "deactivated"
+    log_action(
+        db,
+        action="deactivate_user",
+        entity_type="user",
+        entity_id=user.id,
+        description="User account deactivated",
+        actor_id=user.id,
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@app.delete("/users/{user_id}", status_code=204)
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.get(db_models.User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    has_related_records = any(
+        (
+            db.query(db_models.Listing.id)
+            .filter(db_models.Listing.owner_id == user_id)
+            .first(),
+            db.query(db_models.Offer.id)
+            .filter(db_models.Offer.user_id == user_id)
+            .first(),
+            db.query(db_models.Note.id)
+            .filter(db_models.Note.user_id == user_id)
+            .first(),
+            db.query(db_models.AuditLog.id)
+            .filter(db_models.AuditLog.actor_id == user_id)
+            .first(),
+        )
+    )
+    if has_related_records:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete this profile because it has related records.",
+        )
+
+    db.delete(user)
+    db.commit()
 
 
 @app.get("/hero-slides")

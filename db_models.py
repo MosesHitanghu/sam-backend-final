@@ -29,6 +29,8 @@ class User(Base, TimestampMixin):
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     profile_picture: Mapped[str | None] = mapped_column(String(500), nullable=True)
     address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    district: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    village: Mapped[str | None] = mapped_column(String(120), nullable=True)
     experience: Mapped[str | None] = mapped_column(String(120), nullable=True)
     sales_closed: Mapped[int] = mapped_column(Integer, default=0)
     gender: Mapped[str | None] = mapped_column(String(30), nullable=True)

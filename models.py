@@ -12,6 +12,8 @@ class UserBase(BaseModel):
     last_name: str | None = None
     full_name: str | None = None
     address: str | None = None
+    district: str | None = None
+    village: str | None = None
     experience: str | None = None
     gender: str | None = None
     date_of_birth: str | None = None
@@ -44,6 +46,11 @@ class UserRead(UserBase):
     is_google_account: bool
     created_at: datetime
     updated_at: datetime
+
+
+class UserUpdate(BaseModel):
+    address: str | None = None
+    nationality: str | None = None
 
 
 class ListingCreate(BaseModel):
