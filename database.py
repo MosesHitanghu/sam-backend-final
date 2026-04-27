@@ -1,5 +1,3 @@
-
-#Working version of database.py, with some changes to support SQLAlchemy 2.0 and to remove the dependency on python-dotenv. The .env.local file is still supported, but it will be loaded manually if it exists.
 import os
 
 from sqlalchemy import create_engine
@@ -8,16 +6,22 @@ from sqlalchemy.pool import NullPool
 
 try:
     from dotenv import load_dotenv
-
     load_dotenv(".env.local")
 except ImportError:
     pass
 
 
-DATABASE_URL = os.getenv("sam_DATABASE_URL") or os.getenv("sam_POSTGRES_URL")
+DATABASE_URL = (
+    os.getenv("sam_DATABASE_URL")
+    or os.getenv("sam_POSTGRES_URL")
+    or os.getenv("DATABASE_URL")
+    or os.getenv("POSTGRES_URL")
+)
 
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL or POSTGRES_URL is not set")
+    raise RuntimeError(
+        "Database URL is not set. Set DATABASE_URL or POSTGRES_URL in Vercel Environment Variables."
+    )
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
