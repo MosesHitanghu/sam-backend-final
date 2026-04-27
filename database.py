@@ -1,18 +1,45 @@
+import os
+from pathlib import Path
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import NullPool
 
-DB_NAME = "sam_db"
-DB_USER = "postgres"
-DB_PASS = "Goodness"
-DB_HOST = "localhost"
-DB_PORT = "5432"
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).with_name(".env.local")
+    if env_path.exists():
+        load_dotenv(env_path)
+except ImportError:
+    pass
 
-SQLALCHEMY_DATABASE_URL = (
-    f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+DATABASE_URL = (
+    os.getenv("sam_DATABASE_URL")
+    or os.getenv("sam_POSTGRES_URL")
+    or os.getenv("DATABASE_URL")
+    or os.getenv("POSTGRES_URL")
 )
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+if not DATABASE_URL:
+    raise RuntimeError("Database URL is not set")
+
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    poolclass=NullPool,
+)
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
+
+Base = declarative_base()
 
 
 def get_db():

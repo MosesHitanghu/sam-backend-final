@@ -20,6 +20,7 @@ class User(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    username: Mapped[str | None] = mapped_column(String(120), unique=True, nullable=True, index=True)
     phone_number: Mapped[str | None] = mapped_column(String(30), unique=True, nullable=True)
     password: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(30), index=True)
@@ -73,10 +74,24 @@ class Listing(Base, TimestampMixin):
     owner: Mapped["User"] = relationship(back_populates="listings")
     comments: Mapped[list["Comment"]] = relationship(back_populates="listing")
     features: Mapped[list["Feature"]] = relationship(back_populates="listing")
+    reactions: Mapped[list["Reaction"]] = relationship(back_populates="listing")
     offers: Mapped[list["Offer"]] = relationship(back_populates="listing")
     site_visits: Mapped[list["SiteVisit"]] = relationship(back_populates="listing")
     notes: Mapped[list["Note"]] = relationship(back_populates="listing")
     views: Mapped[list["ListingView"]] = relationship(back_populates="listing")
+    sale: Mapped["ListingSale | None"] = relationship(back_populates="listing", uselist=False)
+
+
+class ListingSale(Base, TimestampMixin):
+    __tablename__ = "listing_sales"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id"), unique=True, index=True)
+    sale_price: Mapped[float] = mapped_column(Float)
+    sold_at: Mapped[str] = mapped_column(String(40))
+    registered_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+    listing: Mapped["Listing"] = relationship(back_populates="sale")
 
 
 class ListingView(Base):
@@ -112,6 +127,18 @@ class Feature(Base):
     listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id"), index=True)
 
     listing: Mapped["Listing"] = relationship(back_populates="features")
+
+
+class Reaction(Base, TimestampMixin):
+    __tablename__ = "reactions"
+    __table_args__ = (UniqueConstraint("listing_id", "viewer_key", name="uq_reaction_listing_viewer"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id"), index=True)
+    viewer_key: Mapped[str] = mapped_column(String(255), index=True)
+    rating: Mapped[float] = mapped_column(Float)
+
+    listing: Mapped["Listing"] = relationship(back_populates="reactions")
 
 
 class Offer(Base, TimestampMixin):

@@ -1,9 +1,12 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
+from uuid import uuid4
+from urllib.parse import quote_plus
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, inspect, or_, text
 from sqlalchemy.orm import Session
 
@@ -12,17 +15,26 @@ from database import engine, get_db
 from models import (
     AgentSignup,
     AuditLogRead,
+    AvailabilityRead,
     BonusInfoSection,
     DashboardStats,
+    FeatureCreate,
+    FeatureRead,
     HeroSlideCreate,
     ListingCreate,
     ListingRead,
+    ListingSaleCreate,
+    ListingSaleRead,
+    ListingUpdate,
     ListingViewCreate,
     ListingViewRead,
     LoginPayload,
     NoteCreate,
     OfferCreate,
+    ReactionCreate,
+    ReactionRead,
     SiteVisitCreate,
+    StatusUpdate,
     UserCreate,
     UserRead,
     UserUpdate,
@@ -31,33 +43,21 @@ from models import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BONUS_INFO_PATH = PROJECT_ROOT / "docs" / "bonus_info.md"
+UPLOADS_DIR = PROJECT_ROOT / "backend" / "uploads"
+DEFAULT_AGENT_AVATAR_BACKGROUND = "f3ede4"
+DEFAULT_AGENT_AVATAR_COLOR = "ef5b2b"
 
 
-def sync_existing_schema() -> None:
-    metadata = db_models.Base.metadata
-
-    with engine.begin() as connection:
-        inspector = inspect(connection)
-        existing_tables = set(inspector.get_table_names())
-
-        for table in metadata.sorted_tables:
-            if table.name not in existing_tables:
-                continue
-
-            existing_columns = {
-                column_info["name"] for column_info in inspector.get_columns(table.name)
-            }
-
-            for column in table.columns:
-                if column.name in existing_columns:
-                    continue
-
-                column_type = column.type.compile(dialect=engine.dialect)
-                add_column_sql = (
-                    f'ALTER TABLE "{table.name}" '
-                    f'ADD COLUMN "{column.name}" {column_type}'
-                )
-                connection.execute(text(add_column_sql))
+def build_default_agent_avatar(first_name: str, last_name: str) -> str:
+    name = quote_plus(f"{first_name} {last_name}".strip() or "SAM Agent")
+    return (
+        "https://ui-avatars.com/api/"
+        f"?name={name}"
+        f"&background={DEFAULT_AGENT_AVATAR_BACKGROUND}"
+        f"&color={DEFAULT_AGENT_AVATAR_COLOR}"
+        "&bold=true"
+        "&format=svg"
+    )
 
 
 def log_action(
@@ -80,12 +80,98 @@ def log_action(
     )
 
 
+def sync_existing_schema() -> None:
+    metadata = db_models.Base.metadata
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        existing_tables = set(inspector.get_table_names())
+
+        for table in metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue
+
+            existing_columns = {
+                column_info["name"] for column_info in inspector.get_columns(table.name)
+            }
+            for column in table.columns:
+                if column.name in existing_columns:
+                    continue
+
+                column_type = column.type.compile(dialect=engine.dialect)
+                connection.execute(
+                    text(
+                        f'ALTER TABLE "{table.name}" '
+                        f'ADD COLUMN "{column.name}" {column_type}'
+                    )
+                )
+
+        connection.execute(
+            text(
+                "UPDATE users SET sales_closed = 0 "
+                "WHERE sales_closed IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE users SET is_google_account = false "
+                "WHERE is_google_account IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE listings SET approval_status = 'approved' "
+                "WHERE approval_status IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE listings SET category = 'Land' "
+                "WHERE category IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE listings SET is_featured = false "
+                "WHERE is_featured IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE listings SET total_views = 0 "
+                "WHERE total_views IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE listings SET total_sales = 0 "
+                "WHERE total_sales IS NULL"
+            )
+        )
+        for table in metadata.sorted_tables:
+            column_names = {column.name for column in table.columns}
+            if "created_at" in column_names:
+                connection.execute(
+                    text(
+                        f'UPDATE "{table.name}" SET created_at = NOW() '
+                        "WHERE created_at IS NULL"
+                    )
+                )
+            if "updated_at" in column_names:
+                connection.execute(
+                    text(
+                        f'UPDATE "{table.name}" SET updated_at = NOW() '
+                        "WHERE updated_at IS NULL"
+                    )
+                )
+
+
 def seed_defaults() -> None:
     db = next(get_db())
     try:
         default_users = [
             {
                 "email": "hmosem@gmail.com",
+                "username": "hmosem",
                 "password": "12345678",
                 "role": "super_admin",
                 "status": "active",
@@ -99,6 +185,7 @@ def seed_defaults() -> None:
             },
             {
                 "email": "nabasabrianish1@gmail.com",
+                "username": "nabasabrianish1",
                 "password": "12345678",
                 "role": "agent",
                 "status": "approved",
@@ -114,6 +201,7 @@ def seed_defaults() -> None:
             },
             {
                 "email": "ghatejeka@gmail.com",
+                "username": "ghatejeka",
                 "password": "12345678",
                 "role": "admin",
                 "status": "active",
@@ -127,6 +215,7 @@ def seed_defaults() -> None:
             },
             {
                 "email": "sarah.namubiru@sam.ug",
+                "username": "sarahnamubiru",
                 "password": "12345678",
                 "role": "agent",
                 "status": "approved",
@@ -142,6 +231,7 @@ def seed_defaults() -> None:
             },
             {
                 "email": "david.kato@sam.ug",
+                "username": "davidkato",
                 "password": "12345678",
                 "role": "agent",
                 "status": "approved",
@@ -157,6 +247,7 @@ def seed_defaults() -> None:
             },
             {
                 "email": "ruth.atwine@sam.ug",
+                "username": "ruthatwine",
                 "password": "12345678",
                 "role": "agent",
                 "status": "approved",
@@ -189,6 +280,9 @@ def seed_defaults() -> None:
                     actor_id=user.id,
                 )
             else:
+                if payload["role"] in {"super_admin", "admin"}:
+                    for field in ("password", "role", "status"):
+                        setattr(user, field, payload[field])
                 for field, value in payload.items():
                     if getattr(user, field, None) in (None, "") and value not in (None, ""):
                         setattr(user, field, value)
@@ -530,7 +624,6 @@ def seed_defaults() -> None:
 async def lifespan(_: FastAPI):
     db_models.Base.metadata.create_all(bind=engine)
     sync_existing_schema()
-    seed_defaults()
     yield
 
 
@@ -542,6 +635,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 
 def parse_bonus_sections() -> list[BonusInfoSection]:
@@ -557,7 +652,10 @@ def parse_bonus_sections() -> list[BonusInfoSection]:
         if line.startswith("## "):
             if current_lines:
                 sections.append(
-                    BonusInfoSection(heading=current_heading, body="\n".join(current_lines).strip())
+                    BonusInfoSection(
+                        heading=current_heading,
+                        body="\n".join(current_lines).strip(),
+                    )
                 )
             current_heading = line.removeprefix("## ").strip()
             current_lines = []
@@ -566,7 +664,12 @@ def parse_bonus_sections() -> list[BonusInfoSection]:
             current_lines.append(line)
 
     if current_lines:
-        sections.append(BonusInfoSection(heading=current_heading, body="\n".join(current_lines).strip()))
+        sections.append(
+            BonusInfoSection(
+                heading=current_heading,
+                body="\n".join(current_lines).strip(),
+            )
+        )
 
     return sections
 
@@ -576,23 +679,38 @@ def greeting():
     return {"message": "SAM API is running successfully"}
 
 
+@app.get("/db-test")
+def db_test(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"message": "Database connected successfully"}
+
+
+@app.post("/insert-seed")
+def insert_seed():
+    seed_defaults()
+    return {"message": "Seed data inserted successfully"}
+
+
 @app.post("/auth/login")
 def login(payload: LoginPayload, db: Session = Depends(get_db)):
+    identifier = payload.identifier.strip()
+    password = payload.password.strip()
     user = (
         db.query(db_models.User)
         .filter(
             or_(
-                db_models.User.email == payload.identifier,
-                db_models.User.phone_number == payload.identifier,
+                func.lower(db_models.User.email) == identifier.lower(),
+                func.lower(db_models.User.username) == identifier.lower(),
+                db_models.User.phone_number == identifier,
             )
         )
         .first()
     )
-    if not user or user.password != payload.password:
+    if not user or user.password != password:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if user.role == "agent" and user.status not in {"approved", "active"}:
-        raise HTTPException(status_code=403, detail="Agent account is pending approval")
+    if user.role == "agent" and user.status in {"rejected", "deactivated"}:
+        raise HTTPException(status_code=403, detail="Agent account is not active")
 
     log_action(
         db,
@@ -606,16 +724,47 @@ def login(payload: LoginPayload, db: Session = Depends(get_db)):
     return {"message": "Login successful", "user": UserRead.model_validate(user)}
 
 
+@app.get("/auth/check-availability", response_model=AvailabilityRead)
+def check_availability(field: str, value: str, db: Session = Depends(get_db)):
+    normalized = value.strip()
+    allowed_fields = {"username", "email", "phone_number"}
+    if field not in allowed_fields:
+        raise HTTPException(status_code=400, detail="Unsupported field")
+    if not normalized:
+        return AvailabilityRead(
+            field=field,
+            value=normalized,
+            available=False,
+            message=f"{field.replace('_', ' ').title()} is required",
+        )
+
+    column = getattr(db_models.User, field)
+    query_value = normalized.lower() if field in {"username", "email"} else normalized
+    existing = (
+        db.query(db_models.User)
+        .filter(func.lower(column) == query_value if field in {"username", "email"} else column == query_value)
+        .first()
+    )
+    label = field.replace("_", " ")
+    return AvailabilityRead(
+        field=field,
+        value=normalized,
+        available=existing is None,
+        message=f"{label.title()} is available" if existing is None else f"{label.title()} is already in use",
+    )
+
+
 @app.post("/auth/agents/signup", response_model=UserRead, status_code=201)
 def signup_agent(payload: AgentSignup, db: Session = Depends(get_db)):
+    conflicts = [
+        func.lower(db_models.User.email) == payload.email.lower(),
+        func.lower(db_models.User.username) == payload.username.lower(),
+    ]
+    if payload.phone_number:
+        conflicts.append(db_models.User.phone_number == payload.phone_number)
     existing_user = (
         db.query(db_models.User)
-        .filter(
-            or_(
-                db_models.User.email == payload.email,
-                db_models.User.phone_number == payload.phone_number,
-            )
-        )
+        .filter(or_(*conflicts))
         .first()
     )
     if existing_user:
@@ -623,6 +772,7 @@ def signup_agent(payload: AgentSignup, db: Session = Depends(get_db)):
 
     user = db_models.User(
         email=payload.email,
+        username=payload.username,
         phone_number=payload.phone_number,
         password=payload.password,
         role="agent",
@@ -630,6 +780,10 @@ def signup_agent(payload: AgentSignup, db: Session = Depends(get_db)):
         first_name=payload.first_name,
         last_name=payload.last_name,
         full_name=f"{payload.first_name} {payload.last_name}",
+        profile_picture=build_default_agent_avatar(
+            payload.first_name,
+            payload.last_name,
+        ),
     )
     db.add(user)
     db.flush()
@@ -648,6 +802,19 @@ def signup_agent(payload: AgentSignup, db: Session = Depends(get_db)):
 
 @app.post("/users", response_model=UserRead, status_code=201)
 def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+    conflicts = [func.lower(db_models.User.email) == payload.email.lower()]
+    if payload.username:
+        conflicts.append(func.lower(db_models.User.username) == payload.username.lower())
+    if payload.phone_number:
+        conflicts.append(db_models.User.phone_number == payload.phone_number)
+    existing_user = (
+        db.query(db_models.User)
+        .filter(or_(*conflicts))
+        .first()
+    )
+    if existing_user:
+        raise HTTPException(status_code=409, detail="Username, email, or phone number already exists")
+
     user = db_models.User(**payload.model_dump())
     db.add(user)
     db.flush()
@@ -788,7 +955,11 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
 @app.get("/hero-slides")
 def list_hero_slides(db: Session = Depends(get_db)):
-    return db.query(db_models.HeroSlide).filter(db_models.HeroSlide.is_active.is_(True)).all()
+    return (
+        db.query(db_models.HeroSlide)
+        .filter(db_models.HeroSlide.is_active.is_(True))
+        .all()
+    )
 
 
 @app.post("/hero-slides", status_code=201)
@@ -831,8 +1002,21 @@ def list_listings(
         query = query.filter(db_models.Listing.owner_id == owner_id)
     if role == "agent" and owner_id:
         query = query.filter(db_models.Listing.owner_id == owner_id)
-    ordering = db_models.Listing.created_at.desc() if latest else db_models.Listing.is_featured.desc()
+
+    ordering = (
+        db_models.Listing.created_at.desc()
+        if latest
+        else db_models.Listing.is_featured.desc()
+    )
     return query.order_by(ordering, db_models.Listing.created_at.desc()).all()
+
+
+@app.get("/listings/{listing_id}", response_model=ListingRead)
+def get_listing(listing_id: int, db: Session = Depends(get_db)):
+    listing = db.get(db_models.Listing, listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    return listing
 
 
 @app.post("/listings", response_model=ListingRead, status_code=201)
@@ -860,6 +1044,162 @@ def create_listing(payload: ListingCreate, db: Session = Depends(get_db)):
     return listing
 
 
+@app.post("/uploads/images")
+async def upload_images(request: Request, files: list[UploadFile] = File(...)):
+    urls: list[str] = []
+    allowed_content_types = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    for file in files[:5]:
+        if file.content_type not in allowed_content_types:
+            raise HTTPException(status_code=400, detail="Only image uploads are allowed")
+
+        suffix = Path(file.filename or "").suffix.lower()
+        if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+            suffix = ".jpg"
+
+        filename = f"{uuid4().hex}{suffix}"
+        target = UPLOADS_DIR / filename
+        contents = await file.read()
+        target.write_bytes(contents)
+        urls.append(str(request.url_for("uploads", path=filename)))
+
+    return {"urls": urls}
+
+
+@app.patch("/listings/{listing_id}", response_model=ListingRead)
+def update_listing(
+    listing_id: int,
+    payload: ListingUpdate,
+    db: Session = Depends(get_db),
+):
+    listing = db.get(db_models.Listing, listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    pictures = updates.pop("pictures", None)
+    for field, value in updates.items():
+        setattr(listing, field, value)
+    if pictures is not None:
+        listing.pictures = ",".join(pictures)
+
+    log_action(
+        db,
+        action="update_listing",
+        entity_type="listing",
+        entity_id=listing.id,
+        description=f"Updated listing {listing.title}",
+        actor_id=listing.owner_id,
+    )
+    db.commit()
+    db.refresh(listing)
+    return listing
+
+
+@app.post("/listings/{listing_id}/sale", response_model=ListingSaleRead, status_code=201)
+def register_listing_sale(
+    listing_id: int,
+    payload: ListingSaleCreate,
+    db: Session = Depends(get_db),
+):
+    listing = db.get(db_models.Listing, listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    existing_sale = (
+        db.query(db_models.ListingSale)
+        .filter(db_models.ListingSale.listing_id == listing_id)
+        .first()
+    )
+    if existing_sale:
+        raise HTTPException(status_code=409, detail="Listing sale already registered")
+
+    sale = db_models.ListingSale(
+        listing_id=listing_id,
+        sale_price=payload.sale_price,
+        sold_at=payload.sold_at,
+        registered_by_id=payload.registered_by_id,
+    )
+    listing.status = "sold"
+    listing.total_sales = max(listing.total_sales or 0, 1)
+    db.add(sale)
+    db.flush()
+    log_action(
+        db,
+        action="register_listing_sale",
+        entity_type="listing",
+        entity_id=listing.id,
+        description=f"Registered sale for {listing.title}",
+        actor_id=payload.registered_by_id,
+    )
+    db.commit()
+    db.refresh(sale)
+    return sale
+
+
+@app.delete("/listings/{listing_id}", status_code=204)
+def delete_listing(listing_id: int, db: Session = Depends(get_db)):
+    listing = db.get(db_models.Listing, listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    owner_id = listing.owner_id
+    title = listing.title
+    offer_ids = [
+        offer_id
+        for (offer_id,) in db.query(db_models.Offer.id)
+        .filter(db_models.Offer.listing_id == listing_id)
+        .all()
+    ]
+    site_visit_ids = [
+        site_visit_id
+        for (site_visit_id,) in db.query(db_models.SiteVisit.id)
+        .filter(db_models.SiteVisit.listing_id == listing_id)
+        .all()
+    ]
+    db.query(db_models.Note).filter(db_models.Note.listing_id == listing_id).delete(
+        synchronize_session=False
+    )
+    if offer_ids:
+        db.query(db_models.Note).filter(db_models.Note.offer_id.in_(offer_ids)).delete(
+            synchronize_session=False
+        )
+    if site_visit_ids:
+        db.query(db_models.Note).filter(
+            db_models.Note.site_visit_id.in_(site_visit_ids)
+        ).delete(synchronize_session=False)
+    db.query(db_models.ListingView).filter(
+        db_models.ListingView.listing_id == listing_id
+    ).delete(synchronize_session=False)
+    db.query(db_models.ListingSale).filter(
+        db_models.ListingSale.listing_id == listing_id
+    ).delete(synchronize_session=False)
+    db.query(db_models.Comment).filter(
+        db_models.Comment.listing_id == listing_id
+    ).delete(synchronize_session=False)
+    db.query(db_models.Feature).filter(
+        db_models.Feature.listing_id == listing_id
+    ).delete(synchronize_session=False)
+    db.query(db_models.Reaction).filter(
+        db_models.Reaction.listing_id == listing_id
+    ).delete(synchronize_session=False)
+    db.query(db_models.Offer).filter(
+        db_models.Offer.listing_id == listing_id
+    ).delete(synchronize_session=False)
+    db.query(db_models.SiteVisit).filter(
+        db_models.SiteVisit.listing_id == listing_id
+    ).delete(synchronize_session=False)
+    db.delete(listing)
+    log_action(
+        db,
+        action="delete_listing",
+        entity_type="listing",
+        entity_id=listing_id,
+        description=f"Deleted listing {title}",
+        actor_id=owner_id,
+    )
+    db.commit()
+
+
 @app.post("/listings/{listing_id}/view", response_model=ListingViewRead, status_code=201)
 def register_listing_view(
     listing_id: int,
@@ -876,6 +1216,7 @@ def register_listing_view(
 
     now = datetime.utcnow()
     threshold = now - timedelta(hours=24)
+
     existing_view = (
         db.query(db_models.ListingView)
         .filter(
@@ -910,6 +1251,64 @@ def register_listing_view(
     )
 
 
+@app.post("/listings/{listing_id}/reaction", response_model=ReactionRead, status_code=201)
+def rate_listing(
+    listing_id: int,
+    payload: ReactionCreate,
+    db: Session = Depends(get_db),
+):
+    listing = db.get(db_models.Listing, listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    viewer_key = payload.viewer_key.strip()
+    if not viewer_key:
+        raise HTTPException(status_code=400, detail="viewer_key is required")
+
+    reaction = (
+        db.query(db_models.Reaction)
+        .filter(
+            db_models.Reaction.listing_id == listing_id,
+            db_models.Reaction.viewer_key == viewer_key,
+        )
+        .first()
+    )
+
+    if reaction is None:
+        reaction = db_models.Reaction(
+            listing_id=listing_id,
+            viewer_key=viewer_key,
+            rating=payload.rating,
+        )
+        db.add(reaction)
+    else:
+        reaction.rating = payload.rating
+
+    db.commit()
+    db.refresh(reaction)
+    return reaction
+
+
+@app.post("/features", response_model=FeatureRead, status_code=201)
+def create_feature(payload: FeatureCreate, db: Session = Depends(get_db)):
+    listing = db.get(db_models.Listing, payload.listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    feature = db_models.Feature(
+        category=payload.category.strip(),
+        title=payload.title.strip(),
+        listing_id=payload.listing_id,
+    )
+    if not feature.category or not feature.title:
+        raise HTTPException(status_code=400, detail="Feature category and title are required")
+
+    db.add(feature)
+    db.commit()
+    db.refresh(feature)
+    return feature
+
+
 @app.post("/wishes", status_code=201)
 def create_wish(payload: WishCreate, db: Session = Depends(get_db)):
     wish = db_models.Wish(**payload.model_dump())
@@ -929,6 +1328,24 @@ def create_wish(payload: WishCreate, db: Session = Depends(get_db)):
 @app.get("/wishes")
 def list_wishes(db: Session = Depends(get_db)):
     return db.query(db_models.Wish).order_by(db_models.Wish.created_at.desc()).all()
+
+
+@app.patch("/wishes/{wish_id}/status")
+def update_wish_status(wish_id: int, payload: StatusUpdate, db: Session = Depends(get_db)):
+    wish = db.get(db_models.Wish, wish_id)
+    if not wish:
+        raise HTTPException(status_code=404, detail="Wish not found")
+    wish.status = payload.status
+    log_action(
+        db,
+        action="update_wish_status",
+        entity_type="wish",
+        entity_id=wish.id,
+        description=f"Changed wish status to {wish.status}",
+    )
+    db.commit()
+    db.refresh(wish)
+    return wish
 
 
 @app.post("/offers", status_code=201)
@@ -957,6 +1374,25 @@ def list_offers(db: Session = Depends(get_db)):
     return db.query(db_models.Offer).order_by(db_models.Offer.created_at.desc()).all()
 
 
+@app.patch("/offers/{offer_id}/status")
+def update_offer_status(offer_id: int, payload: StatusUpdate, db: Session = Depends(get_db)):
+    offer = db.get(db_models.Offer, offer_id)
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    offer.status = payload.status
+    log_action(
+        db,
+        action="update_offer_status",
+        entity_type="offer",
+        entity_id=offer.id,
+        description=f"Changed offer status to {offer.status}",
+        actor_id=offer.user_id,
+    )
+    db.commit()
+    db.refresh(offer)
+    return offer
+
+
 @app.post("/site-visits", status_code=201)
 def create_site_visit(payload: SiteVisitCreate, db: Session = Depends(get_db)):
     site_visit = db_models.SiteVisit(**payload.model_dump())
@@ -976,6 +1412,28 @@ def create_site_visit(payload: SiteVisitCreate, db: Session = Depends(get_db)):
 @app.get("/site-visits")
 def list_site_visits(db: Session = Depends(get_db)):
     return db.query(db_models.SiteVisit).order_by(db_models.SiteVisit.created_at.desc()).all()
+
+
+@app.patch("/site-visits/{site_visit_id}/status")
+def update_site_visit_status(
+    site_visit_id: int,
+    payload: StatusUpdate,
+    db: Session = Depends(get_db),
+):
+    site_visit = db.get(db_models.SiteVisit, site_visit_id)
+    if not site_visit:
+        raise HTTPException(status_code=404, detail="Site visit not found")
+    site_visit.status = payload.status
+    log_action(
+        db,
+        action="update_site_visit_status",
+        entity_type="site_visit",
+        entity_id=site_visit.id,
+        description=f"Changed site visit status to {site_visit.status}",
+    )
+    db.commit()
+    db.refresh(site_visit)
+    return site_visit
 
 
 @app.post("/notes", status_code=201)
@@ -1008,8 +1466,12 @@ def dashboard_stats(role: str, user_id: int, db: Session = Depends(get_db)):
 
     listings = listings_query.all()
     total_listings = len(listings)
-    approved_listings = sum(1 for listing in listings if listing.approval_status == "approved")
-    rejected_listings = sum(1 for listing in listings if listing.approval_status == "rejected")
+    approved_listings = sum(
+        1 for listing in listings if listing.approval_status == "approved"
+    )
+    rejected_listings = sum(
+        1 for listing in listings if listing.approval_status == "rejected"
+    )
     total_views = sum(listing.total_views for listing in listings)
     total_sales = sum(listing.total_sales for listing in listings)
 

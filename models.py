@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class UserBase(BaseModel):
+    username: str | None = None
     email: str
     phone_number: str | None = None
     role: str
@@ -11,6 +12,7 @@ class UserBase(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     full_name: str | None = None
+    profile_picture: str | None = None
     address: str | None = None
     district: str | None = None
     village: str | None = None
@@ -25,6 +27,7 @@ class UserCreate(UserBase):
 
 
 class AgentSignup(BaseModel):
+    username: str
     email: str
     phone_number: str | None = None
     password: str = Field(min_length=8)
@@ -35,6 +38,13 @@ class AgentSignup(BaseModel):
 class LoginPayload(BaseModel):
     identifier: str
     password: str
+
+
+class AvailabilityRead(BaseModel):
+    field: str
+    value: str
+    available: bool
+    message: str
 
 
 class UserRead(UserBase):
@@ -49,8 +59,33 @@ class UserRead(UserBase):
 
 
 class UserUpdate(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    full_name: str | None = None
+    profile_picture: str | None = None
+    phone_number: str | None = None
     address: str | None = None
+    district: str | None = None
+    village: str | None = None
+    experience: str | None = None
     nationality: str | None = None
+
+
+class ListingSaleCreate(BaseModel):
+    sale_price: float = Field(gt=0)
+    sold_at: str
+    registered_by_id: int | None = None
+
+
+class ListingSaleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    listing_id: int
+    sale_price: float
+    sold_at: str
+    registered_by_id: int | None = None
+    created_at: datetime
 
 
 class ListingCreate(BaseModel):
@@ -72,6 +107,41 @@ class ListingCreate(BaseModel):
     is_featured: bool = False
     status: str = "available"
     approval_status: str = "approved"
+
+
+class ListingUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    price: float | None = None
+    district: str | None = None
+    city: str | None = None
+    address: str | None = None
+    category: str | None = None
+    size_text: str | None = None
+    purpose: str | None = None
+    thumbnail_url: str | None = None
+    pictures: list[str] | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    title_transfer_charges: float | None = None
+    is_featured: bool | None = None
+    status: str | None = None
+    approval_status: str | None = None
+
+
+class FeatureRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    category: str
+    title: str
+    listing_id: int
+
+
+class FeatureCreate(BaseModel):
+    category: str
+    title: str
+    listing_id: int
 
 
 class ListingRead(BaseModel):
@@ -98,6 +168,7 @@ class ListingRead(BaseModel):
     total_views: int
     total_sales: int
     owner_id: int
+    features: list[FeatureRead] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -110,6 +181,22 @@ class ListingViewRead(BaseModel):
     listing_id: int
     total_views: int
     counted: bool
+
+
+class ReactionCreate(BaseModel):
+    viewer_key: str
+    rating: float = Field(ge=0.5, le=5)
+
+
+class ReactionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    listing_id: int
+    viewer_key: str
+    rating: float
+    created_at: datetime
+    updated_at: datetime
 
 
 class WishCreate(BaseModel):
@@ -142,6 +229,10 @@ class SiteVisitCreate(BaseModel):
     scheduled_date: str
     scheduled_time: str
     message: str | None = None
+
+
+class StatusUpdate(BaseModel):
+    status: str
 
 
 class NoteCreate(BaseModel):
