@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -43,7 +43,8 @@ from models import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BONUS_INFO_PATH = PROJECT_ROOT / "docs" / "bonus_info.md"
-UPLOADS_DIR = PROJECT_ROOT / "backend" / "uploads"
+DEFAULT_UPLOADS_DIR = Path("/tmp/uploads") if os.getenv("VERCEL") else PROJECT_ROOT / "backend" / "uploads"
+UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(DEFAULT_UPLOADS_DIR)))
 DEFAULT_AGENT_AVATAR_BACKGROUND = "f3ede4"
 DEFAULT_AGENT_AVATAR_COLOR = "ef5b2b"
 
@@ -620,24 +621,45 @@ def seed_defaults() -> None:
         db.close()
 
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    db_models.Base.metadata.create_all(bind=engine)
-    sync_existing_schema()
-    yield
-
-
-app = FastAPI(title="SAM API", lifespan=lifespan)
+app = FastAPI(title="SAM API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://sam-demo-delta.vercel.app",
+    ],
+    # Allows Vercel preview/production domains such as:
+    # https://sam-demo-delta.vercel.app and future generated preview URLs.
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
+# Local uploads work normally. On Vercel, /tmp is temporary and not persistent,
+# so use this only for testing. For production uploads, use Cloudinary/S3/etc.
+try:
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+except Exception as exc:
+    print(f"Uploads disabled: {exc}")
+
+
+def verify_admin_task_token(request: Request) -> None:
+    """
+    Optional protection for manual admin routes.
+    If ADMIN_TASK_TOKEN is set, callers must send: x-admin-token: <token>
+    If ADMIN_TASK_TOKEN is not set, routes remain open for local/testing use.
+    """
+    expected_token = os.getenv("ADMIN_TASK_TOKEN")
+    if expected_token and request.headers.get("x-admin-token") != expected_token:
+        raise HTTPException(status_code=403, detail="Invalid or missing admin task token")
+
+
+def initialize_database() -> None:
+    db_models.Base.metadata.create_all(bind=engine)
+    sync_existing_schema()
 
 def parse_bonus_sections() -> list[BonusInfoSection]:
     if not BONUS_INFO_PATH.exists():
@@ -681,14 +703,35 @@ def greeting():
 
 @app.get("/db-test")
 def db_test(db: Session = Depends(get_db)):
-    db.execute(text("SELECT 1"))
-    return {"message": "Database connected successfully"}
+    try:
+        db.execute(text("SELECT 1"))
+        return {"message": "Database connected successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/init-db")
+def init_db(request: Request):
+    try:
+        verify_admin_task_token(request)
+        initialize_database()
+        return {"message": "Database initialized successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/insert-seed")
-def insert_seed():
-    seed_defaults()
-    return {"message": "Seed data inserted successfully"}
+def insert_seed(request: Request):
+    try:
+        verify_admin_task_token(request)
+        seed_defaults()
+        return {"message": "Seed data inserted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/auth/login")
