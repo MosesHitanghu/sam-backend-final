@@ -56,8 +56,8 @@ class Listing(Base, TimestampMixin):
     district: Mapped[str] = mapped_column(String(120), index=True)
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
     address: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    status: Mapped[str] = mapped_column(String(30), default="available", index=True)
-    approval_status: Mapped[str] = mapped_column(String(30), default="approved", index=True)
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    approval_status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
     category: Mapped[str] = mapped_column(String(120), default="Land")
     size_text: Mapped[str | None] = mapped_column(String(120), nullable=True)
     purpose: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -234,3 +234,64 @@ class HeroSlide(Base, TimestampMixin):
     subtitle: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str] = mapped_column(String(500))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class AdminDistrict(Base, TimestampMixin):
+    __tablename__ = "admin_districts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_id: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    type: Mapped[str] = mapped_column(String(40), default="district", index=True)
+
+    counties: Mapped[list["AdminCounty"]] = relationship(
+        back_populates="district",
+        cascade="all, delete-orphan",
+        order_by="AdminCounty.name",
+    )
+
+
+class AdminCounty(Base, TimestampMixin):
+    __tablename__ = "admin_counties"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_id: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(160), index=True)
+    type: Mapped[str] = mapped_column(String(40), default="county", index=True)
+    district_id: Mapped[int] = mapped_column(ForeignKey("admin_districts.id"), index=True)
+
+    district: Mapped["AdminDistrict"] = relationship(back_populates="counties")
+    subcounties: Mapped[list["AdminSubcounty"]] = relationship(
+        back_populates="county",
+        cascade="all, delete-orphan",
+        order_by="AdminSubcounty.name",
+    )
+
+
+class AdminSubcounty(Base, TimestampMixin):
+    __tablename__ = "admin_subcounties"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_id: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(180), index=True)
+    type: Mapped[str] = mapped_column(String(60), index=True)
+    county_id: Mapped[int] = mapped_column(ForeignKey("admin_counties.id"), index=True)
+
+    county: Mapped["AdminCounty"] = relationship(back_populates="subcounties")
+    parishes: Mapped[list["AdminParish"]] = relationship(
+        back_populates="subcounty",
+        cascade="all, delete-orphan",
+        order_by="AdminParish.name",
+    )
+
+
+class AdminParish(Base, TimestampMixin):
+    __tablename__ = "admin_parishes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_id: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(180), index=True)
+    type: Mapped[str] = mapped_column(String(60), index=True)
+    subcounty_id: Mapped[int] = mapped_column(ForeignKey("admin_subcounties.id"), index=True)
+
+    subcounty: Mapped["AdminSubcounty"] = relationship(back_populates="parishes")

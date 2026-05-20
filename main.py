@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -8,11 +9,13 @@ from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, Uploa
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, inspect, or_, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 import db_models
 from database import engine, get_db
 from models import (
+    AdminDistrictAreasRead,
+    AdminDistrictSummary,
     AgentSignup,
     AuditLogRead,
     AvailabilityRead,
@@ -43,6 +46,7 @@ from models import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BONUS_INFO_PATH = PROJECT_ROOT / "docs" / "bonus_info.md"
+UGANDA_ADMIN_AREAS_PATH = PROJECT_ROOT / "docs" / "uganda_admin_areas_db.json"
 DEFAULT_UPLOADS_DIR = Path("/tmp/uploads") if os.getenv("VERCEL") else PROJECT_ROOT / "backend" / "uploads"
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(DEFAULT_UPLOADS_DIR)))
 DEFAULT_AGENT_AVATAR_BACKGROUND = "f3ede4"
@@ -106,6 +110,20 @@ def sync_existing_schema() -> None:
                     )
                 )
 
+        if engine.dialect.name == "postgresql":
+            for table_name, constraint_name in (
+                ("admin_counties", "uq_admin_county_district_name"),
+                ("admin_subcounties", "uq_admin_subcounty_county_name"),
+                ("admin_parishes", "uq_admin_parish_subcounty_name"),
+            ):
+                if table_name in existing_tables:
+                    connection.execute(
+                        text(
+                            f'ALTER TABLE "{table_name}" '
+                            f'DROP CONSTRAINT IF EXISTS "{constraint_name}"'
+                        )
+                    )
+
         connection.execute(
             text(
                 "UPDATE users SET sales_closed = 0 "
@@ -166,6 +184,86 @@ def sync_existing_schema() -> None:
                 )
 
 
+def upsert_admin_area(
+    db: Session,
+    model,
+    *,
+    source_id: str,
+    defaults: dict,
+):
+    area = db.query(model).filter(model.source_id == source_id).first()
+    if area:
+        for field, value in defaults.items():
+            setattr(area, field, value)
+        return area
+
+    area = model(source_id=source_id, **defaults)
+    db.add(area)
+    db.flush()
+    return area
+
+
+def seed_uganda_admin_areas() -> None:
+    if not UGANDA_ADMIN_AREAS_PATH.exists():
+        return
+
+    db = next(get_db())
+    try:
+        payload = json.loads(UGANDA_ADMIN_AREAS_PATH.read_text(encoding="utf-8"))
+        for district_data in payload.get("districts", []):
+            district = upsert_admin_area(
+                db,
+                db_models.AdminDistrict,
+                source_id=str(district_data["id"]),
+                defaults={
+                    "name": district_data["name"],
+                    "type": district_data.get("type", "district"),
+                },
+            )
+            for county_data in district_data.get("counties", []):
+                county = upsert_admin_area(
+                    db,
+                    db_models.AdminCounty,
+                    source_id=str(county_data["id"]),
+                    defaults={
+                        "name": county_data["name"],
+                        "type": county_data.get("type", "county"),
+                        "district_id": district.id,
+                    },
+                )
+                for subcounty_data in county_data.get(
+                    "subcounties_divisions_town_councils",
+                    [],
+                ):
+                    subcounty = upsert_admin_area(
+                        db,
+                        db_models.AdminSubcounty,
+                        source_id=str(subcounty_data["id"]),
+                        defaults={
+                            "name": subcounty_data["name"],
+                            "type": subcounty_data.get("type", "subcounty"),
+                            "county_id": county.id,
+                        },
+                    )
+                    for parish_data in subcounty_data.get("parishes_wards", []):
+                        upsert_admin_area(
+                            db,
+                            db_models.AdminParish,
+                            source_id=str(parish_data["id"]),
+                            defaults={
+                                "name": parish_data["name"],
+                                "type": parish_data.get("type", "parish"),
+                                "subcounty_id": subcounty.id,
+                            },
+                        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 def seed_defaults() -> None:
     db = next(get_db())
     try:
@@ -176,13 +274,13 @@ def seed_defaults() -> None:
                 "password": "12345678",
                 "role": "super_admin",
                 "status": "active",
-                "first_name": "Hosem",
-                "last_name": "Manager",
-                "full_name": "SAM Super Admin",
+                "first_name": "Moses",
+                "last_name": "Hitanghu",
+                "full_name": "Moses Hitanghu",
                 "phone_number": "+256763615316",
                 "profile_picture": "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=900&q=80",
-                "district": "Mukono",
-                "village": "Kiwanga",
+                "district": "Kampala",
+                "village": "Mengo",
             },
             {
                 "email": "nabasabrianish1@gmail.com",
@@ -627,21 +725,14 @@ app.add_middleware(
     allow_origins=[
         "https://sam-demo-delta.vercel.app",
         "http://localhost:5173",
+        "http://127.0.0.1:5173",
         "http://localhost:3000",
+        "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Local uploads work normally. On Vercel, /tmp is temporary and not persistent,
-# so use this only for testing. For production uploads, use Cloudinary/S3/etc.
-try:
-    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
-except Exception as exc:
-    print(f"Uploads disabled: {exc}")
-
 
 def verify_admin_task_token(request: Request) -> None:
     """
@@ -657,6 +748,7 @@ def verify_admin_task_token(request: Request) -> None:
 def initialize_database() -> None:
     db_models.Base.metadata.create_all(bind=engine)
     sync_existing_schema()
+    seed_uganda_admin_areas()
 
 def parse_bonus_sections() -> list[BonusInfoSection]:
     if not BONUS_INFO_PATH.exists():
@@ -886,6 +978,23 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="User not found")
 
     updates = payload.model_dump(exclude_unset=True)
+    conflicts = []
+    if updates.get("email"):
+        conflicts.append(func.lower(db_models.User.email) == updates["email"].lower())
+    if updates.get("username"):
+        conflicts.append(func.lower(db_models.User.username) == updates["username"].lower())
+    if updates.get("phone_number"):
+        conflicts.append(db_models.User.phone_number == updates["phone_number"])
+    if conflicts:
+        existing_user = (
+            db.query(db_models.User)
+            .filter(db_models.User.id != user_id)
+            .filter(or_(*conflicts))
+            .first()
+        )
+        if existing_user:
+            raise HTTPException(status_code=409, detail="Username, email, or phone number already exists")
+
     for field, value in updates.items():
         setattr(user, field, value)
 
@@ -1018,6 +1127,44 @@ def create_hero_slide(payload: HeroSlideCreate, db: Session = Depends(get_db)):
     return slide
 
 
+def get_admin_district_with_areas(db: Session, district: str):
+    district_name = district.strip()
+    query = db.query(db_models.AdminDistrict).options(
+        selectinload(db_models.AdminDistrict.counties)
+        .selectinload(db_models.AdminCounty.subcounties)
+        .selectinload(db_models.AdminSubcounty.parishes)
+    )
+
+    admin_district = query.filter(
+        func.lower(db_models.AdminDistrict.name) == district_name.lower()
+    ).first()
+    if admin_district:
+        return admin_district
+
+    return query.filter(db_models.AdminDistrict.name.ilike(f"%{district_name}%")).first()
+
+
+@app.get("/admin-areas/districts", response_model=list[AdminDistrictSummary])
+def list_admin_districts(db: Session = Depends(get_db)):
+    return db.query(db_models.AdminDistrict).order_by(db_models.AdminDistrict.name).all()
+
+
+@app.get("/admin-areas/areas", response_model=AdminDistrictAreasRead)
+def get_admin_areas_by_query(district: str = Query(min_length=1), db: Session = Depends(get_db)):
+    admin_district = get_admin_district_with_areas(db, district)
+    if not admin_district:
+        raise HTTPException(status_code=404, detail="District not found")
+    return admin_district
+
+
+@app.get("/admin-areas/districts/{district_name}/areas", response_model=AdminDistrictAreasRead)
+def get_admin_district_areas(district_name: str, db: Session = Depends(get_db)):
+    admin_district = get_admin_district_with_areas(db, district_name)
+    if not admin_district:
+        raise HTTPException(status_code=404, detail="District not found")
+    return admin_district
+
+
 @app.get("/listings", response_model=list[ListingRead])
 def list_listings(
     featured: bool | None = None,
@@ -1065,8 +1212,12 @@ def create_listing(payload: ListingCreate, db: Session = Depends(get_db)):
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
 
+    listing_data = payload.model_dump(exclude={"pictures"})
+    listing_data["status"] = "pending"
+    listing_data["approval_status"] = "pending"
+
     listing = db_models.Listing(
-        **payload.model_dump(exclude={"pictures"}),
+        **listing_data,
         pictures=",".join(payload.pictures),
     )
     db.add(listing)
@@ -1103,6 +1254,15 @@ async def upload_images(request: Request, files: list[UploadFile] = File(...)):
         urls.append(str(request.url_for("uploads", path=filename)))
 
     return {"urls": urls}
+
+
+# Local uploads work normally. On Vercel, /tmp is temporary and not persistent,
+# so use this only for testing. For production uploads, use Cloudinary/S3/etc.
+try:
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+except Exception as exc:
+    print(f"Uploads disabled: {exc}")
 
 
 @app.patch("/listings/{listing_id}", response_model=ListingRead)

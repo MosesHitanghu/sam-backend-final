@@ -59,6 +59,10 @@ class UserRead(UserBase):
 
 
 class UserUpdate(BaseModel):
+    username: str | None = None
+    email: str | None = None
+    role: str | None = None
+    status: str | None = None
     first_name: str | None = None
     last_name: str | None = None
     full_name: str | None = None
@@ -105,8 +109,8 @@ class ListingCreate(BaseModel):
     longitude: float | None = None
     title_transfer_charges: float | None = None
     is_featured: bool = False
-    status: str = "available"
-    approval_status: str = "approved"
+    status: str = "pending"
+    approval_status: str = "pending"
 
 
 class ListingUpdate(BaseModel):
@@ -268,6 +272,48 @@ class DashboardStats(BaseModel):
 class BonusInfoSection(BaseModel):
     heading: str
     body: str
+
+
+class AdminParishRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source_id: str
+    name: str
+    type: str
+
+
+class AdminSubcountyRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source_id: str
+    name: str
+    type: str
+    parishes: list[AdminParishRead] = Field(default_factory=list)
+
+
+class AdminCountyRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source_id: str
+    name: str
+    type: str
+    subcounties: list[AdminSubcountyRead] = Field(default_factory=list)
+
+
+class AdminDistrictSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source_id: str
+    name: str
+    type: str
+
+
+class AdminDistrictAreasRead(AdminDistrictSummary):
+    counties: list[AdminCountyRead] = Field(default_factory=list)
 
 
 class AuditLogRead(BaseModel):
