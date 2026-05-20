@@ -44,9 +44,15 @@ from models import (
     WishCreate,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+BACKEND_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = BACKEND_ROOT.parent
 BONUS_INFO_PATH = PROJECT_ROOT / "docs" / "bonus_info.md"
-UGANDA_ADMIN_AREAS_PATH = PROJECT_ROOT / "docs" / "uganda_admin_areas_db.json"
+UGANDA_ADMIN_AREAS_PATHS = [
+    BACKEND_ROOT / "uganda_admin_areas_db.json",
+    PROJECT_ROOT / "docs" / "uganda_admin_areas_db.json",
+]
+if os.getenv("UGANDA_ADMIN_AREAS_PATH"):
+    UGANDA_ADMIN_AREAS_PATHS.insert(0, Path(os.environ["UGANDA_ADMIN_AREAS_PATH"]))
 DEFAULT_UPLOADS_DIR = Path("/tmp/uploads") if os.getenv("VERCEL") else PROJECT_ROOT / "backend" / "uploads"
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(DEFAULT_UPLOADS_DIR)))
 DEFAULT_AGENT_AVATAR_BACKGROUND = "f3ede4"
@@ -203,13 +209,21 @@ def upsert_admin_area(
     return area
 
 
+def get_uganda_admin_areas_path() -> Path | None:
+    for path in UGANDA_ADMIN_AREAS_PATHS:
+        if str(path) and path.exists():
+            return path
+    return None
+
+
 def seed_uganda_admin_areas() -> None:
-    if not UGANDA_ADMIN_AREAS_PATH.exists():
+    admin_areas_path = get_uganda_admin_areas_path()
+    if not admin_areas_path:
         return
 
     db = next(get_db())
     try:
-        payload = json.loads(UGANDA_ADMIN_AREAS_PATH.read_text(encoding="utf-8"))
+        payload = json.loads(admin_areas_path.read_text(encoding="utf-8"))
         for district_data in payload.get("districts", []):
             district = upsert_admin_area(
                 db,
@@ -262,6 +276,14 @@ def seed_uganda_admin_areas() -> None:
         raise
     finally:
         db.close()
+
+
+def ensure_uganda_admin_areas_seeded(db: Session) -> None:
+    db_models.Base.metadata.create_all(bind=engine)
+    if db.query(func.count(db_models.AdminDistrict.id)).scalar():
+        return
+
+    seed_uganda_admin_areas()
 
 
 def seed_defaults() -> None:
@@ -729,6 +751,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1146,11 +1169,13 @@ def get_admin_district_with_areas(db: Session, district: str):
 
 @app.get("/admin-areas/districts", response_model=list[AdminDistrictSummary])
 def list_admin_districts(db: Session = Depends(get_db)):
+    ensure_uganda_admin_areas_seeded(db)
     return db.query(db_models.AdminDistrict).order_by(db_models.AdminDistrict.name).all()
 
 
 @app.get("/admin-areas/areas", response_model=AdminDistrictAreasRead)
 def get_admin_areas_by_query(district: str = Query(min_length=1), db: Session = Depends(get_db)):
+    ensure_uganda_admin_areas_seeded(db)
     admin_district = get_admin_district_with_areas(db, district)
     if not admin_district:
         raise HTTPException(status_code=404, detail="District not found")
@@ -1159,6 +1184,7 @@ def get_admin_areas_by_query(district: str = Query(min_length=1), db: Session = 
 
 @app.get("/admin-areas/districts/{district_name}/areas", response_model=AdminDistrictAreasRead)
 def get_admin_district_areas(district_name: str, db: Session = Depends(get_db)):
+    ensure_uganda_admin_areas_seeded(db)
     admin_district = get_admin_district_with_areas(db, district_name)
     if not admin_district:
         raise HTTPException(status_code=404, detail="District not found")
